@@ -23,7 +23,7 @@ g: dict[str, Any] = {
     "next_id": 1,
     "root": None,
     "canvas": None,
-    "toolbar_frame": None,
+    "toolbar_window": None,
     "tool_buttons": {},
     "menu_edit_var": None,
     "selection_rect_id": None,
@@ -56,13 +56,19 @@ def configure_persistence(
 
 
 def _sync_toolbar_visibility(state: dict[str, Any]) -> None:
-    toolbar_frame = state["toolbar_frame"]
-    if toolbar_frame is None:
+    toolbar_window = state["toolbar_window"]
+    root = state["root"]
+    if toolbar_window is None:
         return
     if state["edit_mode"]:
-        toolbar_frame.pack(side=tk.TOP, fill=tk.X)
+        root.update_idletasks()
+        x = root.winfo_rootx() + 20
+        y = root.winfo_rooty() + root.winfo_height() + 8
+        toolbar_window.geometry(f"+{x}+{y}")
+        toolbar_window.deiconify()
+        toolbar_window.lift()
     else:
-        toolbar_frame.pack_forget()
+        toolbar_window.withdraw()
 
 
 def _find_object_by_id(state: dict[str, Any], object_id: int | None) -> dict[str, Any] | None:
@@ -240,7 +246,7 @@ def build_menubar(root: tk.Tk, state: dict[str, Any]) -> None:
     file_menu.add_command(label="Export", underline=0, command=lambda: save_as_file(state))
     file_menu.add_command(label="Import", underline=0, command=lambda: load_from_dialog(state))
     file_menu.add_separator()
-    file_menu.add_command(label="Quit", underline=0, command=lambda: state["root"].quit())
+    file_menu.add_command(label="Quit", underline=0, command=lambda: state["root"].destroy())
     menubar.add_cascade(label="File", underline=0, menu=file_menu)
 
     window_menu = tk.Menu(menubar, tearoff=0)
@@ -257,8 +263,22 @@ def build_menubar(root: tk.Tk, state: dict[str, Any]) -> None:
 
 
 def build_toolbar(root: tk.Tk, state: dict[str, Any]) -> None:
-    toolbar_frame = tk.Frame(root, bd=1, relief=tk.GROOVE)
-    state["toolbar_frame"] = toolbar_frame
+    toolbar_window = tk.Toplevel(root)
+    toolbar_window.title("Tools")
+    toolbar_window.resizable(False, False)
+    toolbar_window.transient(root)
+    state["toolbar_window"] = toolbar_window
+
+    def close_toolbar() -> None:
+        state["edit_mode"] = False
+        edit_var = state["menu_edit_var"]
+        if edit_var is not None:
+            edit_var.set(False)
+        _sync_toolbar_visibility(state)
+
+    toolbar_window.protocol("WM_DELETE_WINDOW", close_toolbar)
+    toolbar_frame = tk.Frame(toolbar_window, bd=1, relief=tk.GROOVE)
+    toolbar_frame.pack(fill=tk.BOTH, expand=True)
 
     select_btn = tk.Button(toolbar_frame, text="Select", command=lambda: set_tool(state, "select"))
     label_btn = tk.Button(toolbar_frame, text="T", width=4, command=lambda: set_tool(state, "label"))
@@ -388,6 +408,11 @@ def render_object(canvas: tk.Canvas, obj: dict[str, Any]) -> None:
         )
     else:
         canvas.coords(obj["window_id"], obj["x"], obj["y"])
+        canvas.itemconfigure(
+            obj["window_id"],
+            width=obj["width"],
+            height=obj["height"],
+        )
 
 
 def select_object(state: dict[str, Any], object_id: int | None) -> None:
