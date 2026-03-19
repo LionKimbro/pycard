@@ -1,0 +1,172 @@
+{
+  "document_id": "pycard-stage1-spec-v1",
+  "purpose": "Implement a minimal HyperCard-like single-card editor using Python tkinter with no classes, using only functions and dictionaries.",
+  "constraints": {
+    "no_classes": true,
+    "single_file": true,
+    "no_external_dependencies": true,
+    "style": "functional with global state dictionary",
+    "ui_framework": "tkinter"
+  },
+  "features": {
+    "window": {
+      "title": "PyCard Stage 1",
+      "resizable": true
+    },
+    "menubar": {
+      "menus": [
+        {
+          "name": "Window",
+          "items": [
+            {
+              "label": "Edit Mode",
+              "type": "checkbutton",
+              "state_key": "edit_mode"
+            }
+          ]
+        }
+      ]
+    },
+    "toolbar": {
+      "visible_only_when": "edit_mode == true",
+      "tools": [
+        "select",
+        "label",
+        "button"
+      ]
+    },
+    "canvas": {
+      "type": "tk.Canvas",
+      "fills_window": true,
+      "background": "white",
+      "resizes_with_window": true
+    }
+  },
+  "state_model": {
+    "global_state_dict": {
+      "edit_mode": false,
+      "current_tool": "select",
+      "objects": [],
+      "selected_object_id": null,
+      "drag": {
+        "active": false,
+        "object_id": null,
+        "start_mouse": [0, 0],
+        "start_pos": [0, 0]
+      },
+      "next_id": 1
+    },
+    "object_schema": {
+      "id": "int",
+      "type": "label | button",
+      "x": "int",
+      "y": "int",
+      "width": "int",
+      "height": "int",
+      "text": "string",
+      "widget": "tk widget reference"
+    }
+  },
+  "layout": {
+    "root": {
+      "contains": ["menubar", "toolbar_frame", "canvas"]
+    },
+    "toolbar_frame": {
+      "type": "tk.Frame",
+      "pack": "top",
+      "buttons": [
+        { "label": "Select", "sets_tool": "select" },
+        { "label": "T", "sets_tool": "label" },
+        { "label": "Button", "sets_tool": "button" }
+      ]
+    },
+    "canvas": {
+      "pack": "fill both expand true"
+    }
+  },
+  "behavior": {
+    "mode_rules": {
+      "edit_mode_false": {
+        "canvas_click": "do nothing",
+        "widgets_behave_normally": true
+      },
+      "edit_mode_true": {
+        "canvas_click": "depends on current_tool"
+      }
+    },
+    "tool_behavior": {
+      "select": {
+        "click": "select object under cursor",
+        "drag": "move selected object"
+      },
+      "label": {
+        "click": "create label at mouse position"
+      },
+      "button": {
+        "click": "create button at mouse position"
+      }
+    },
+    "selection": {
+      "single_selection_only": true,
+      "visual_feedback": "optional highlight border"
+    },
+    "object_creation": {
+      "label": {
+        "default_text": "Label",
+        "size": [80, 24]
+      },
+      "button": {
+        "default_text": "Button",
+        "size": [100, 32]
+      }
+    },
+    "dragging": {
+      "on_mouse_down": "record start position",
+      "on_mouse_move": "update object x,y",
+      "on_mouse_up": "end drag"
+    }
+  },
+  "required_functions": [
+    "init_app()",
+    "build_menubar(root, state)",
+    "build_toolbar(root, state)",
+    "build_canvas(root, state)",
+    "set_tool(state, tool_name)",
+    "toggle_edit_mode(state)",
+    "create_object(state, type, x, y)",
+    "render_object(canvas, obj)",
+    "select_object(state, object_id)",
+    "find_object_at_position(state, x, y)",
+    "start_drag(state, event)",
+    "drag_move(state, event)",
+    "end_drag(state, event)",
+    "on_canvas_click(event, state)",
+    "on_mouse_down(event, state)",
+    "on_mouse_move(event, state)",
+    "on_mouse_up(event, state)"
+  ],
+  "event_bindings": {
+    "canvas": {
+      "<Button-1>": "on_mouse_down",
+      "<B1-Motion>": "on_mouse_move",
+      "<ButtonRelease-1>": "on_mouse_up"
+    }
+  },
+  "implementation_notes": [
+    "Use canvas.create_window to place widgets on canvas",
+    "Store widget reference inside each object",
+    "Update widget position using canvas.coords",
+    "Do not use classes anywhere",
+    "All state must live in a single global dictionary",
+    "All functions take state as an argument",
+    "IDs increment using state['next_id']"
+  ],
+  "success_criteria": [
+    "User can toggle edit mode from menu",
+    "Toolbar appears/disappears correctly",
+    "User can select tool",
+    "User can click to create label and button",
+    "User can select and drag objects",
+    "Objects visually move on screen"
+  ]
+}
