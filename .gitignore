@@ -205,3 +205,22 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# --------------------
+
+# projected documentation
+docs/projected/
+
+# Patchboard Lab runtime directory
+.lab/
+
+
+# For the time being, do NOT include agents and filesystem artifacts.
+.focus-explorer/
+.librarian2/
+AGENTS.md
+CLAUDE.md
+agents.json
+check-list.txt
+docs/conversations/
+registry.json
