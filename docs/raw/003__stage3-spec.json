@@ -1,0 +1,98 @@
+{
+  "document_id": "pycard-stage3-spec-v1",
+  "purpose": "Add button scripting capability to the tkinter HyperCard-like system. Buttons execute Python code when clicked in run mode. No classes allowed.",
+  "constraints": {
+    "no_classes": true,
+    "single_file": true,
+    "no_external_dependencies": true,
+    "style": "functional with global state dictionary"
+  },
+  "new_features": {
+    "button_scripting": true,
+    "script_editor": "extend property editor"
+  },
+  "state_model_extensions": {
+    "object_schema_updates": {
+      "on_click_code": "string (buttons only)"
+    }
+  },
+  "property_editor_updates": {
+    "button_fields": [
+      "text",
+      "width",
+      "height",
+      "on_click_code"
+    ],
+    "on_click_code_editor": {
+      "widget": "tk.Text",
+      "label": "On Click Code"
+    }
+  },
+  "runtime_behavior": {
+    "mode_required": "edit_mode == false",
+    "button_click": {
+      "action": "execute object's on_click_code"
+    }
+  },
+  "execution_environment": {
+    "approach": "use exec() with controlled locals",
+    "provided_context": {
+      "state": "global state dict",
+      "find_object_by_id": "function",
+      "find_object_by_text": "function",
+      "set_text": "function to update object text",
+      "print": "standard print"
+    },
+    "example_functions": [
+      {
+        "name": "find_object_by_text",
+        "behavior": "return first object with matching text"
+      },
+      {
+        "name": "set_text",
+        "behavior": "update object's text and re-render widget"
+      }
+    ]
+  },
+  "execution_rules": [
+    "Wrap exec() in try/except",
+    "Print errors to console",
+    "Do not crash application on script error"
+  ],
+  "event_handling_updates": {
+    "button_widget": {
+      "command": "call run_button_script(state, object_id)"
+    }
+  },
+  "required_functions_additions": [
+    "run_button_script(state, object_id)",
+    "build_execution_context(state)",
+    "find_object_by_id(state, object_id)",
+    "find_object_by_text(state, text)",
+    "set_object_text(state, object_id, new_text)"
+  ],
+  "implementation_notes": [
+    "Only execute scripts when edit_mode is false",
+    "Store script as plain string in object",
+    "Use exec(code, {}, local_context)",
+    "Keep execution context small and explicit",
+    "After modifying object state, update widget display"
+  ],
+  "example_scripts": [
+    {
+      "description": "Print message",
+      "code": "print('Hello from button')"
+    },
+    {
+      "description": "Change another label",
+      "code": "obj = find_object_by_text('Label')\nif obj:\n    set_text(obj['id'], 'Changed!')"
+    }
+  ],
+  "success_criteria": [
+    "User can enter code in button property editor",
+    "Clicking button in run mode executes code",
+    "Scripts can modify other objects",
+    "Errors do not crash app",
+    "Scripts do not run in edit mode"
+  ]
+}

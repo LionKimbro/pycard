@@ -80,6 +80,125 @@ def _find_object_by_id(state: dict[str, Any], object_id: int | None) -> dict[str
     return None
 
 
+def find_object_by_id(state: dict[str, Any], object_id: int) -> dict[str, Any] | None:
+    """Return the object dict with a matching integer id, or None."""
+    return _find_object_by_id(state, object_id)
+
+
+def find_object_by_text(state: dict[str, Any], text: str) -> dict[str, Any] | None:
+    """Return the first object whose current visible text/content matches text."""
+    for obj in state["objects"]:
+        if _get_widget_text(obj) == text:
+            return obj
+    return None
+
+
+def find_object_by_name(state: dict[str, Any], name: str) -> dict[str, Any] | None:
+    """Return the first object whose name matches the provided string."""
+    target = str(name)
+    for obj in state["objects"]:
+        if str(obj.get("name", "")) == target:
+            return obj
+    return None
+
+
+def resolve_object_ref(state: dict[str, Any], obj_ref: Any) -> dict[str, Any] | None:
+    """Resolve an object reference from object dict, id int, or name str."""
+    if isinstance(obj_ref, dict):
+        object_id = obj_ref.get("id")
+        if isinstance(object_id, int):
+            return _find_object_by_id(state, object_id)
+        return obj_ref
+    if isinstance(obj_ref, int):
+        return _find_object_by_id(state, obj_ref)
+    if isinstance(obj_ref, str):
+        return find_object_by_name(state, obj_ref)
+    return None
+
+
+def set_object_text(state: dict[str, Any], obj_ref: Any, new_text: str) -> None:
+    """Set an object's text/content by object dict, id, or name; refresh widget."""
+    obj = resolve_object_ref(state, obj_ref)
+    if obj is None:
+        return
+    obj["text"] = str(new_text)
+    _set_widget_text(obj, obj["text"])
+    render_object(state["canvas"], obj)
+    _sync_selection_visual(state)
+
+
+def get_object_text(state: dict[str, Any], obj_or_id: Any) -> str:
+    """Return text/content for an object dict, object id, or object name string."""
+    obj = resolve_object_ref(state, obj_or_id)
+    if obj is None:
+        return ""
+    return _get_widget_text(obj)
+
+
+def build_execution_context(state: dict[str, Any]) -> dict[str, Any]:
+    def _find_object_by_id(object_id: int) -> dict[str, Any] | None:
+        """find_object_by_id(object_id: int) -> dict | None
+
+        Return the object with this integer id, or None if not found.
+        """
+        return find_object_by_id(state, object_id)
+
+    def _find_object_by_name(name: str) -> dict[str, Any] | None:
+        """find_object_by_name(name: str) -> dict | None
+
+        Return the first object with this name string, or None if not found.
+        """
+        return find_object_by_name(state, name)
+
+    def _find_object_by_text(text: str) -> dict[str, Any] | None:
+        """find_object_by_text(text: str) -> dict | None
+
+        Return the first object whose visible text/content equals text.
+        """
+        return find_object_by_text(state, text)
+
+    def _get_text(obj: Any) -> str:
+        """get_text(obj: dict | int | str) -> str
+
+        Return text/content for an object dict, object id, or object name string.
+        Returns empty string if the object cannot be resolved.
+        """
+        return get_object_text(state, obj)
+
+    def _set_text(obj: Any, new_text: str) -> None:
+        """set_text(obj: dict | int | str, new_text: str) -> None
+
+        Set an object's text/content by object dict, id, or object name string.
+        """
+        set_object_text(state, obj, new_text)
+
+    return {
+        "state": state,
+        "find_object_by_id": _find_object_by_id,
+        "find_object_by_name": _find_object_by_name,
+        "find_object_by_text": _find_object_by_text,
+        "get_text": _get_text,
+        "set_text": _set_text,
+        "print": print,
+    }
+
+
+def run_button_script(state: dict[str, Any], object_id: int) -> None:
+    if state["edit_mode"]:
+        return
+    obj = _find_object_by_id(state, object_id)
+    if obj is None or obj["type"] != "button":
+        return
+    code = str(obj.get("on_click_code", "")).strip()
+    if not code:
+        return
+    local_context = build_execution_context(state)
+    try:
+        exec(code, {}, local_context)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[pycard] button script error (id={object_id}): {exc}")
+
+
 def _event_xy_on_canvas(state: dict[str, Any], event: tk.Event) -> tuple[int, int]:
     canvas = state["canvas"]
     x = int(canvas.canvasx(event.x_root - canvas.winfo_rootx()))
@@ -125,12 +244,14 @@ def _serialize_payload(state: dict[str, Any]) -> dict[str, Any]:
         payload_objects.append(
             {
                 "id": int(obj["id"]),
+                "name": str(obj.get("name", str(obj["id"]))),
                 "type": str(obj["type"]),
                 "x": int(obj["x"]),
                 "y": int(obj["y"]),
                 "width": int(obj["width"]),
                 "height": int(obj["height"]),
                 "text": _get_widget_text(obj),
+                "on_click_code": str(obj.get("on_click_code", "")),
             }
         )
     return {
@@ -151,12 +272,14 @@ def _apply_loaded_payload(state: dict[str, Any], payload: dict[str, Any]) -> Non
         obj_id = int(raw["id"])
         obj = {
             "id": obj_id,
+            "name": str(raw.get("name", str(obj_id))),
             "type": str(raw["type"]),
             "x": int(raw["x"]),
             "y": int(raw["y"]),
             "width": int(raw["width"]),
             "height": int(raw["height"]),
             "text": str(raw.get("text", "")),
+            "on_click_code": str(raw.get("on_click_code", "")),
             "widget": None,
             "window_id": None,
         }
@@ -352,15 +475,19 @@ def create_object(state: dict[str, Any], type: str, x: int, y: int) -> dict[str,
 
     obj = {
         "id": object_id,
+        "name": str(object_id),
         "type": type,
         "x": int(x - (width // 2)),
         "y": int(y - (height // 2)),
         "width": width,
         "height": height,
         "text": text,
+        "on_click_code": "",
         "widget": widget,
         "window_id": None,
     }
+    if type == "button":
+        widget.configure(command=lambda oid=object_id: run_button_script(state, oid))
     widget.bind(
         "<Button-1>",
         lambda event: _forward_widget_event_to_canvas(event, state, on_mouse_down),
@@ -516,7 +643,11 @@ def rebuild_all_widgets(state: dict[str, Any]) -> None:
         if type_name == "label":
             widget = tk.Label(canvas, text=obj["text"], bd=1, relief=tk.FLAT, bg="#f8f8f8")
         elif type_name == "button":
-            widget = tk.Button(canvas, text=obj["text"])
+            widget = tk.Button(
+                canvas,
+                text=obj["text"],
+                command=lambda oid=obj["id"]: run_button_script(state, oid),
+            )
         elif type_name == "entry":
             widget = tk.Entry(canvas)
         elif type_name == "text":
@@ -638,15 +769,27 @@ def open_property_editor(state: dict[str, Any], object_id: int) -> None:
         text_widget.insert(0, _get_widget_text(obj))
     text_widget.grid(row=0, column=1, sticky="ew", padx=8, pady=6)
 
-    tk.Label(top, text="Width").grid(row=1, column=0, sticky="w", padx=8, pady=6)
+    tk.Label(top, text="Name").grid(row=1, column=0, sticky="w", padx=8, pady=6)
+    name_entry = tk.Entry(top, width=40)
+    name_entry.insert(0, str(obj.get("name", str(obj["id"]))))
+    name_entry.grid(row=1, column=1, sticky="ew", padx=8, pady=6)
+
+    tk.Label(top, text="Width").grid(row=2, column=0, sticky="w", padx=8, pady=6)
     width_entry = tk.Entry(top, width=12)
     width_entry.insert(0, str(obj["width"]))
-    width_entry.grid(row=1, column=1, sticky="w", padx=8, pady=6)
+    width_entry.grid(row=2, column=1, sticky="w", padx=8, pady=6)
 
-    tk.Label(top, text="Height").grid(row=2, column=0, sticky="w", padx=8, pady=6)
+    tk.Label(top, text="Height").grid(row=3, column=0, sticky="w", padx=8, pady=6)
     height_entry = tk.Entry(top, width=12)
     height_entry.insert(0, str(obj["height"]))
-    height_entry.grid(row=2, column=1, sticky="w", padx=8, pady=6)
+    height_entry.grid(row=3, column=1, sticky="w", padx=8, pady=6)
+
+    script_widget: Any = None
+    if obj["type"] == "button":
+        tk.Label(top, text="On Click Code").grid(row=4, column=0, sticky="nw", padx=8, pady=6)
+        script_widget = tk.Text(top, width=40, height=8)
+        script_widget.insert("1.0", str(obj.get("on_click_code", "")))
+        script_widget.grid(row=4, column=1, sticky="ew", padx=8, pady=6)
 
     top.grid_columnconfigure(1, weight=1)
 
@@ -660,19 +803,28 @@ def open_property_editor(state: dict[str, Any], object_id: int) -> None:
             new_height = int(height_entry.get())
         except ValueError:
             return
+        new_name = name_entry.get().strip()
+        if not new_name:
+            new_name = str(obj["id"])
+        on_click_code = None
+        if script_widget is not None:
+            on_click_code = script_widget.get("1.0", "end-1c")
         apply_property_changes(
             state,
             object_id,
             {
                 "text": new_text,
+                "name": new_name,
                 "width": new_width,
                 "height": new_height,
+                "on_click_code": on_click_code,
             },
         )
         top.destroy()
 
-    tk.Button(top, text="Apply", command=on_apply).grid(row=3, column=0, padx=8, pady=10, sticky="w")
-    tk.Button(top, text="Cancel", command=top.destroy).grid(row=3, column=1, padx=8, pady=10, sticky="e")
+    button_row = 5 if obj["type"] == "button" else 4
+    tk.Button(top, text="Apply", command=on_apply).grid(row=button_row, column=0, padx=8, pady=10, sticky="w")
+    tk.Button(top, text="Cancel", command=top.destroy).grid(row=button_row, column=1, padx=8, pady=10, sticky="e")
 
 
 def apply_property_changes(state: dict[str, Any], object_id: int, new_values: dict[str, Any]) -> None:
@@ -685,8 +837,12 @@ def apply_property_changes(state: dict[str, Any], object_id: int, new_values: di
     height_value = int(new_values.get("height", obj["height"]))
 
     obj["text"] = text_value
+    if new_values.get("name") is not None:
+        obj["name"] = str(new_values["name"])
     obj["width"] = max(20, width_value)
     obj["height"] = max(20, height_value)
+    if obj["type"] == "button" and new_values.get("on_click_code") is not None:
+        obj["on_click_code"] = str(new_values["on_click_code"])
     _set_widget_text(obj, obj["text"])
     render_object(state["canvas"], obj)
     _sync_selection_visual(state)
