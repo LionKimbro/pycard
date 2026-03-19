@@ -1,0 +1,168 @@
+{
+  "document_id": "pycard-stage2-spec-v1",
+  "purpose": "Extend Stage 1 tkinter HyperCard-like system with Entry/Text objects, property editing via double-click, and JSON save/load. No classes allowed.",
+  "constraints": {
+    "no_classes": true,
+    "single_file": true,
+    "no_external_dependencies": true,
+    "style": "functional with global state dictionary",
+    "ui_framework": "tkinter"
+  },
+  "new_features": {
+    "new_object_types": [
+      "entry",
+      "text"
+    ],
+    "double_click_editing": true,
+    "persistence": {
+      "save_to_json": true,
+      "load_from_json": true
+    },
+    "placement_behavior": {
+      "center_on_click": true
+    },
+    "tool_ui_feedback": {
+      "highlight_active_tool": true
+    }
+  },
+  "state_model_extensions": {
+    "object_schema_updates": {
+      "type": "label | button | entry | text",
+      "text": "string",
+      "width": "int",
+      "height": "int"
+    },
+    "new_state_keys": {
+      "filename": "string or null"
+    }
+  },
+  "toolbar_updates": {
+    "tools": [
+      "select",
+      "label",
+      "button",
+      "entry",
+      "text"
+    ],
+    "button_labels": {
+      "label": "T",
+      "button": "Button",
+      "entry": "Entry",
+      "text": "Text"
+    }
+  },
+  "object_creation": {
+    "entry": {
+      "default_text": "",
+      "size": [120, 24]
+    },
+    "text": {
+      "default_text": "",
+      "size": [200, 100]
+    },
+    "placement_rule": "center object on click position"
+  },
+  "double_click_behavior": {
+    "event": "<Double-Button-1>",
+    "action": "open property editor window for object",
+    "editor_fields": [
+      "text",
+      "width",
+      "height"
+    ]
+  },
+  "property_editor": {
+    "type": "tk.Toplevel",
+    "widgets": [
+      "Label: 'Text'",
+      "Entry or Text widget depending on object",
+      "Label: 'Width'",
+      "Entry",
+      "Label: 'Height'",
+      "Entry",
+      "Apply button",
+      "Cancel button"
+    ],
+    "apply_behavior": "update object state and re-render widget"
+  },
+  "persistence": {
+    "menu_items": [
+      {
+        "menu": "File",
+        "items": [
+          "New",
+          "Save",
+          "Load"
+        ]
+      }
+    ],
+    "save_format": {
+      "file_type": "json",
+      "structure": {
+        "objects": [
+          {
+            "id": "int",
+            "type": "string",
+            "x": "int",
+            "y": "int",
+            "width": "int",
+            "height": "int",
+            "text": "string"
+          }
+        ]
+      }
+    },
+    "save_behavior": [
+      "serialize state['objects'] to JSON",
+      "write to file"
+    ],
+    "load_behavior": [
+      "clear existing objects",
+      "load JSON file",
+      "recreate all objects",
+      "render them"
+    ]
+  },
+  "rendering_rules": {
+    "entry": "use tk.Entry",
+    "text": "use tk.Text",
+    "widget_creation": "create widget and embed via canvas.create_window",
+    "update_widget": [
+      "update text",
+      "update size",
+      "update position"
+    ]
+  },
+  "required_functions_additions": [
+    "create_entry_object(state, x, y)",
+    "create_text_object(state, x, y)",
+    "open_property_editor(state, object_id)",
+    "apply_property_changes(state, object_id, new_values)",
+    "save_to_file(state)",
+    "load_from_file(state)",
+    "clear_all_objects(state)",
+    "rebuild_all_widgets(state)"
+  ],
+  "event_bindings_additions": {
+    "canvas": {
+      "<Double-Button-1>": "handle_double_click"
+    }
+  },
+  "implementation_notes": [
+    "When loading, destroy all existing widgets before recreating",
+    "Keep widget references in object dict",
+    "For Text widget, use get('1.0', 'end-1c') to retrieve content",
+    "Center placement: subtract width/2 and height/2 from click position",
+    "Tool highlight can be done by changing button background color",
+    "Do not introduce classes"
+  ],
+  "success_criteria": [
+    "User can create Entry and Text objects",
+    "User can double-click any object and edit its properties",
+    "User can save card to JSON file",
+    "User can load card from JSON file",
+    "Objects reappear correctly after loading",
+    "Placement is centered on click",
+    "Active tool is visually clear"
+  ]
+}
