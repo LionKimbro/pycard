@@ -3,18 +3,40 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pycard"
-version = "0.1.0"
-description = "A Python HyperCard-like system."
+name = "lions-pycard"
+version = "0.1.1"
+description = "A Python HyperCard-like card editor with scriptable buttons."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Lion Kimbro" }
+]
+keywords = ["hypercard", "tkinter", "gui", "cards", "editor", "scripting"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: User Interfaces",
+  "Topic :: Utilities",
+]
 dependencies = [
   "lionscliapp",
 ]
 
 [project.scripts]
 pycard = "pycard.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/LionKimbro/pycard"
+Repository = "https://github.com/LionKimbro/pycard"
+Issues = "https://github.com/LionKimbro/pycard/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
