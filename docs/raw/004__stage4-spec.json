@@ -1,0 +1,310 @@
+{
+  "document_id": "pycard-stage4-spec-v1",
+  "purpose": "Extend PyCard into a true single-window HyperCard-like stack editor with multiple cards, card navigation, whole-stack save/load, goto_card(name) scripting support, and direct manipulation resizing of objects via visible selection handles. No classes allowed.",
+  "constraints": {
+    "no_classes": true,
+    "single_file": true,
+    "no_external_dependencies": true,
+    "style": "functional with global state dictionary",
+    "ui_framework": "tkinter",
+    "single_main_window": true,
+    "single_visible_card_at_a_time": true
+  },
+  "design_intent": {
+    "product_identity": "PyCard remains a HyperCard-like single-window stack system, not a multi-window live-coding environment.",
+    "architectural_rule": "The application displays exactly one current card at a time. Card data belongs to the stack. Window/editor state belongs to the single application window."
+  },
+  "new_features": {
+    "multi_card_stack": true,
+    "card_navigation": true,
+    "whole_stack_persistence": true,
+    "goto_card_scripting": true,
+    "selection_handles": true,
+    "direct_resize_by_dragging_handles": true
+  },
+  "state_model": {
+    "global_state_dict": {
+      "edit_mode": false,
+      "current_tool": "select",
+      "stack": {
+        "cards": [],
+        "current_card_id": null,
+        "next_card_id": 1
+      },
+      "selected_object_id": null,
+      "drag": {
+        "active": false,
+        "object_id": null,
+        "start_mouse": [0, 0],
+        "start_pos": [0, 0]
+      },
+      "resize": {
+        "active": false,
+        "object_id": null,
+        "handle": null,
+        "start_mouse": [0, 0],
+        "start_geom": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "selection_overlay": {
+        "box_item_id": null,
+        "handle_item_ids": []
+      },
+      "next_object_id": 1,
+      "filename": null
+    },
+    "card_schema": {
+      "id": "int",
+      "name": "string",
+      "objects": [
+        {
+          "id": "int",
+          "type": "label | button | entry | text",
+          "name": "string",
+          "x": "int",
+          "y": "int",
+          "width": "int",
+          "height": "int",
+          "text": "string",
+          "on_click_code": "string"
+        }
+      ]
+    }
+  },
+  "menus": {
+    "File": [
+      "New Stack",
+      "New Card",
+      "Save",
+      "Load"
+    ],
+    "Go": [
+      "Next Card",
+      "Previous Card"
+    ],
+    "Window": [
+      "Edit Mode"
+    ]
+  },
+  "toolbar": {
+    "visible_only_when": "edit_mode == true",
+    "tools": [
+      "select",
+      "label",
+      "button",
+      "entry",
+      "text"
+    ],
+    "active_tool_should_be_visually_highlighted": true
+  },
+  "card_navigation": {
+    "single_window_rule": "Navigating cards replaces the currently displayed card contents in the main editing surface.",
+    "required_actions": [
+      "create_new_card",
+      "show_card_by_id",
+      "show_next_card",
+      "show_previous_card"
+    ],
+    "default_new_card_name": "Card N",
+    "ui_feedback": [
+      "Show current card name somewhere visible in the window title or status area"
+    ]
+  },
+  "rendering_model": {
+    "rule": "At any moment, only the current card's objects are rendered into the single canvas.",
+    "on_card_switch": [
+      "destroy or remove all current card widgets from canvas",
+      "clear selection overlay",
+      "render all objects for new current card"
+    ]
+  },
+  "selection_and_resize": {
+    "available_in_edit_mode_only": true,
+    "selection": {
+      "single_selection_only": true,
+      "selected_object_shows": [
+        "blue selection rectangle",
+        "visible resize handles at corners"
+      ]
+    },
+    "resize_handles": {
+      "positions": [
+        "nw",
+        "ne",
+        "sw",
+        "se"
+      ],
+      "appearance": "small square handles drawn on canvas overlay",
+      "hit_target": "clicking a handle starts resize mode instead of drag mode"
+    },
+    "resize_behavior": {
+      "general_rule": "Dragging a corner handle updates object x/y/width/height depending on handle",
+      "minimum_size": {
+        "width": 20,
+        "height": 20
+      },
+      "geometry_rule": {
+        "nw": "left/top move, width/height change",
+        "ne": "top/right move, width/height change",
+        "sw": "left/bottom move, width/height change",
+        "se": "right/bottom move, width/height change"
+      },
+      "live_update": true
+    },
+    "drag_vs_resize_priority": [
+      "if mouse down hits a resize handle, start resize",
+      "otherwise if mouse down hits selected object body, start drag",
+      "otherwise select object under cursor or deselect if empty"
+    ]
+  },
+  "object_creation": {
+    "placement_rule": "new objects are centered on click position",
+    "defaults": {
+      "label": {
+        "text": "Label",
+        "width": 80,
+        "height": 24
+      },
+      "button": {
+        "text": "Button",
+        "width": 100,
+        "height": 32,
+        "on_click_code": ""
+      },
+      "entry": {
+        "text": "",
+        "width": 120,
+        "height": 24
+      },
+      "text": {
+        "text": "",
+        "width": 200,
+        "height": 100
+      }
+    }
+  },
+  "scripting": {
+    "button_scripts_run_only_when": "edit_mode == false",
+    "new_api_function": {
+      "goto_card": {
+        "signature": "goto_card(card_name)",
+        "behavior": "switch current visible card to the first card whose name matches card_name"
+      }
+    },
+    "script_environment_must_include": [
+      "find_object_by_id",
+      "find_object_by_name",
+      "get_text",
+      "set_text",
+      "goto_card",
+      "print"
+    ],
+    "error_handling": "script errors must not crash application"
+  },
+  "persistence": {
+    "save_scope": "entire stack, not just current card",
+    "json_shape": {
+      "stack": {
+        "cards": [
+          {
+            "id": "int",
+            "name": "string",
+            "objects": [
+              {
+                "id": "int",
+                "type": "string",
+                "name": "string",
+                "x": "int",
+                "y": "int",
+                "width": "int",
+                "height": "int",
+                "text": "string",
+                "on_click_code": "string"
+              }
+            ]
+          }
+        ],
+        "current_card_id": "int",
+        "next_card_id": "int"
+      },
+      "next_object_id": "int"
+    },
+    "load_behavior": [
+      "clear current rendered widgets",
+      "replace in-memory stack state",
+      "render current card"
+    ]
+  },
+  "required_functions": [
+    "init_app()",
+    "get_current_card(state)",
+    "get_card_by_id(state, card_id)",
+    "get_card_by_name(state, card_name)",
+    "create_new_stack(state)",
+    "create_new_card(state, name=None)",
+    "show_card_by_id(state, card_id)",
+    "show_next_card(state)",
+    "show_previous_card(state)",
+    "goto_card(state, card_name)",
+    "clear_rendered_card(state)",
+    "render_current_card(state)",
+    "render_object(state, obj)",
+    "find_object_at_position(state, x, y)",
+    "select_object(state, object_id)",
+    "clear_selection(state)",
+    "draw_selection_overlay(state)",
+    "clear_selection_overlay(state)",
+    "get_resize_handle_at_position(state, x, y)",
+    "start_drag(state, event)",
+    "drag_move(state, event)",
+    "end_drag(state, event)",
+    "start_resize(state, event, object_id, handle)",
+    "resize_move(state, event)",
+    "end_resize(state, event)",
+    "update_object_geometry(state, object_id, x, y, width, height)",
+    "handle_canvas_mouse_down(event, state)",
+    "handle_canvas_mouse_move(event, state)",
+    "handle_canvas_mouse_up(event, state)",
+    "save_to_file(state)",
+    "load_from_file(state)"
+  ],
+  "event_rules": {
+    "canvas_bindings": {
+      "<Button-1>": "handle_canvas_mouse_down",
+      "<B1-Motion>": "handle_canvas_mouse_move",
+      "<ButtonRelease-1>": "handle_canvas_mouse_up",
+      "<Double-Button-1>": "handle_double_click"
+    },
+    "motion_dispatch": {
+      "if resize.active": "resize_move",
+      "else if drag.active": "drag_move",
+      "else": "do nothing"
+    }
+  },
+  "implementation_notes": [
+    "Do not use classes anywhere.",
+    "Card data must be kept separate from canvas/widget runtime references.",
+    "Only the current card's objects should have live tkinter widget references at any given time.",
+    "Selection overlay items should not be saved to JSON.",
+    "Resize handles should be canvas-drawn overlay elements, not child widgets.",
+    "Entry and Text resizing should update both stored geometry and visual widget size.",
+    "For tkinter Text and Entry widgets embedded on canvas, use canvas.create_window and update placement using canvas.coords.",
+    "When width/height changes, update the embedded widget dimensions appropriately.",
+    "If a widget type cannot honor pixel-perfect size directly, approximate reasonably and prioritize visible correctness over internal elegance."
+  ],
+  "success_criteria": [
+    "User can create multiple cards in one stack.",
+    "User can move to next and previous cards in the single window.",
+    "Current card name is visible.",
+    "Entire stack saves and loads correctly.",
+    "Button scripts can call goto_card(name) to navigate between cards.",
+    "Selected objects show visible corner handles.",
+    "User can drag corner handles to resize label, button, entry, and text objects.",
+    "Resize operation feels smooth and does not conflict with dragging.",
+    "No classes are used."
+  ]
+}
